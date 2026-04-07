@@ -1,0 +1,47 @@
+# Continuous Deployment (CD) Pipeline for 3D Land Intelligence Viewer
+# This workflow automatically pushes your 3D map to a live global URL whenever it is updated.
+
+name: Deploy 3D Viewer to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Grant GitHub Actions the security permissions needed to publish web pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ensure we don't run multiple deployments simultaneously
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy-3d-map:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: 📦 Upload Web Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # We tell GitHub to upload the entire root directory because 
+          # that is where our index.html now lives.
+          path: '.'
+
+      - name: 🚀 Deploy to Global CDN
+        id: deployment
+        uses: actions/deploy-pages@v4

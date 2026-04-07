@@ -54,6 +54,9 @@ class Viewer3D:
             map_style=pdk.map_styles.SATELLITE
         )
         
-        output_path = os.path.join(output_dir, "index.html")
+        # THE FIX: Dynamically target the project root instead of data/output/
+        project_root = os.getcwd()
+        output_path = os.path.join(project_root, "index.html")
+        
         r.to_html(output_path)
-        logger.info(f"3D Viewer successfully saved to {output_path}")
+        logger.info(f"3D Viewer successfully saved to project root: {output_path}")

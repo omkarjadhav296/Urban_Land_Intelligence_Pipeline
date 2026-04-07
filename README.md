@@ -113,3 +113,8 @@ To scale this pipeline from a single TP scheme to the entire state of Gujarat, t
 **Author:** Omkar Arvind Jadhav
 
 _Geospatial Data Scientist & Cloud GIS Architect_ | [LinkedIn](https://www.google.com/search?q=https://www.linkedin.com/in/omkar-jadhav) | [Portfolio](https://www.google.com/search?q=%23)
+
+
+earthengine authenticate --force
+python -c "import ee; ee.Initialize(project='ee-omkarjadhavsrf'); print('GEE Cloud Connection Successful!')"
+python main.py

@@ -16,7 +16,7 @@ class GeometryProcessor:
     def load_and_project(self, filepath: str) -> gpd.GeoDataFrame:
         """Loads spatial data and strictly projects it to the local UTM zone."""
         logger.info(f"Loading data from {filepath}")
-        gdf = gpd.read_file(filepath)
+        gdf = gpd.read_file(filepath, engine="pyogrio")
         
         if gdf.crs != self.config.UTM_43N:
             logger.info(f"Projecting data from {gdf.crs} to {self.config.UTM_43N}")

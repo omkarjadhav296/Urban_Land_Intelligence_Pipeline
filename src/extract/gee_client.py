@@ -27,8 +27,15 @@ class GEEClient:
             raise RuntimeError("Earth Engine Auth failed.") from e
 
     def get_copernicus_dem(self) -> ee.Image:
-        """Fetches the Copernicus 30m Global DEM."""
-        return ee.Image('COPERNICUS/DEM/GLO30')
+        """
+        Fetches the Copernicus 30m Global DEM.
+        
+        Architectural Note: Copernicus GLO30 is stored as an ImageCollection 
+        (a tiled spatial database). We select the 'DEM' band and use .mosaic() 
+        to stitch it into a single continuous ee.Image on the server side.
+        """
+        logger.info("Loading and mosaicking Copernicus DEM ImageCollection...")
+        return ee.ImageCollection('COPERNICUS/DEM/GLO30').select('DEM').mosaic()
 
     def compute_zonal_stats(self, feature_collection: ee.FeatureCollection, image: ee.Image, scale: int = 30) -> ee.FeatureCollection:
         """Pushes the zonal statistics computation down to Google's servers."""

@@ -17,7 +17,7 @@ The system architecture is decoupled into distinct vertical slices (Extraction, 
 - **Distributed Raster Compute:** To maintain a zero-disk footprint and avoid local I/O bottlenecks with heavy .tif files, the pipeline offloads elevation processing to the cloud. Local vector data is serialized to ee.FeatureCollection, and earthengine-api executes distributed ee.Reducer.mean() and ee.Reducer.minMax() algorithms against the Copernicus 30m Global DEM (GLO-30) directly on Google's clusters.
 
 ## 📂 Production Folder Structure
-
+```cmd
 ahmedabad_tp_intelligence/  
 ├── data/  
 │ ├── input/  
@@ -40,6 +40,7 @@ ahmedabad_tp_intelligence/
 ├── main.py # The Orchestrator (Dependency Injection)  
 ├── template.py # Enterprise project scaffolder  
 └── requirements.txt # Pipeline dependencies
+```
 
 ## 🚀 The Execution Pipeline (main.py)
 

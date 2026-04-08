@@ -2,8 +2,11 @@
 Advanced WebGIS Visualization Engine.
 
 Generates a fully interactive, mobile-friendly WebGIS dashboard.
-Features include: Collapsible Control Panel, Data Hover Tooltips,
-Elevation Legends, and robust Mapbox Draw/Turf.js integration.
+Features:
+- Dynamic GeoJSON File Uploads (Client-Side Rendering)
+- Custom Drawing & Measurement Tools (Turf.js)
+- 3D Extrusion with Fallback Logic
+- Collapsible Glassmorphism UI
 """
 import os
 import logging
@@ -17,7 +20,7 @@ class Viewer3D:
 
     def generate_3d_viewer(self, gdf: gpd.GeoDataFrame, output_dir: str):
         """Generates the advanced WebGIS HTML dashboard."""
-        logger.info("Generating Mobile-Friendly Advanced WebGIS Dashboard...")
+        logger.info("Generating WebGIS Dashboard with Dynamic Upload Capabilities...")
         
         gdf_wgs84 = gdf.to_crs(self.config.WGS84)
         
@@ -34,7 +37,7 @@ class Viewer3D:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Advanced 3D Urban Intelligence Dashboard</title>
+    <title>Enterprise Urban Intelligence Dashboard</title>
     
     <!-- MapLibre GL JS -->
     <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
@@ -53,65 +56,71 @@ class Viewer3D:
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }}
+        body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: #e0e0e0; }}
         #map {{ position: absolute; top: 0; bottom: 0; width: 100%; }}
         
         /* Glassmorphism Panel */
         #control-panel {{
-            position: absolute;
-            top: 15px; left: 15px;
-            width: 320px; max-height: 90vh;
+            position: absolute; top: 15px; left: 15px;
+            width: 340px; max-height: 95vh;
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
             z-index: 10;
-            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
             display: flex; flex-direction: column;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
         }}
         
-        .panel-header {{
-            padding: 15px 20px; border-bottom: 1px solid #eee;
-            display: flex; justify-content: space-between; align-items: center;
-        }}
+        .panel-header {{ padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; border-radius: 12px 12px 0 0; }}
         .panel-header h2 {{ margin: 0; font-size: 1.1rem; color: #2c3e50; }}
         
-        /* Collapse Toggle Button */
-        #toggle-panel-btn {{
-            background: none; border: none; font-size: 1.2rem;
-            cursor: pointer; color: #7f8c8d; transition: 0.3s;
-        }}
+        #toggle-panel-btn {{ background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #7f8c8d; transition: 0.3s; }}
         #toggle-panel-btn:hover {{ color: #3498db; }}
         
         .panel-content {{ padding: 20px; overflow-y: auto; }}
-        .panel-section {{ margin-bottom: 15px; }}
+        .panel-section {{ margin-bottom: 20px; }}
         .panel-section label {{ display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.85rem; color: #34495e; text-transform: uppercase; letter-spacing: 0.5px; }}
         
         select, button {{ width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #bdc3c7; background: #fff; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }}
-        select:hover, button:hover {{ border-color: #3498db; box-shadow: 0 2px 5px rgba(52,152,219,0.2); }}
-        button {{ background: #3498db; color: white; border: none; font-weight: bold; margin-top: 5px; }}
-        button:hover {{ background: #2980b9; }}
+        select:hover, button:hover {{ border-color: #3498db; }}
+        
+        .btn-primary {{ background: #3498db; color: white; border: none; font-weight: bold; }}
+        .btn-primary:hover {{ background: #2980b9; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }}
+        
+        /* Custom Tool Buttons Grid */
+        .tools-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }}
+        .tool-btn {{ padding: 8px 5px; font-size: 0.8rem; background: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 6px; color: #2c3e50; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 5px; }}
+        .tool-btn i {{ font-size: 1.1rem; }}
+        .tool-btn:hover {{ background: #dcdde1; border-color: #7f8c8d; }}
+        .tool-btn.active {{ background: #3498db; color: white; border-color: #2980b9; }}
+        .tool-btn.danger:hover {{ background: #e74c3c; color: white; border-color: #c0392b; }}
+
+        /* File Upload Styling */
+        .file-upload-wrapper {{ position: relative; overflow: hidden; display: inline-block; width: 100%; }}
+        .file-upload-wrapper input[type=file] {{ font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; }}
+        .btn-upload {{ background: #27ae60; color: white; border: none; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px; }}
+        .btn-upload:hover {{ background: #2ecc71; box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3); }}
 
         /* Legend Styling */
         .legend-row {{ display: flex; align-items: center; margin-bottom: 5px; font-size: 0.85rem; color: #555; }}
         .legend-color {{ width: 20px; height: 20px; border-radius: 4px; margin-right: 10px; border: 1px solid rgba(0,0,0,0.1); }}
         
         #measurement-results {{ margin-top: 10px; padding: 12px; background: #e8f4f8; border-radius: 6px; color: #2980b9; font-size: 0.9rem; display: none; border-left: 4px solid #3498db; }}
+        
         .maplibregl-ctrl-geocoder {{ min-width: 100%; box-shadow: none; border: 1px solid #bdc3c7; border-radius: 6px; }}
 
         /* Hover Popup Styling */
-        .maplibregl-popup-content {{ border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); padding: 15px; font-family: inherit; }}
-        .popup-title {{ font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 5px; margin-bottom: 8px; color: #2c3e50; }}
+        .maplibregl-popup-content {{ border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); padding: 15px; font-family: inherit; min-width: 200px; }}
+        .popup-title {{ font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 5px; margin-bottom: 8px; color: #2c3e50; text-transform: capitalize; }}
         .popup-row {{ display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; }}
         .popup-row span:first-child {{ color: #7f8c8d; padding-right: 15px; }}
-        .popup-row span:last-child {{ font-weight: 600; color: #2c3e50; }}
+        .popup-row span:last-child {{ font-weight: 600; color: #2c3e50; text-align: right; }}
 
-        /* Responsive Mobile Design */
+        /* Mobile Adjustments */
         @media (max-width: 768px) {{
             #control-panel {{ width: 92%; left: 4%; top: auto; bottom: 20px; max-height: 60vh; }}
-            /* When collapsed on mobile, slide down */
             #control-panel.collapsed {{ transform: translateY(calc(100% - 60px)); }}
-            /* When collapsed on desktop, slide left */
             @media (min-width: 769px) {{
                 #control-panel.collapsed {{ transform: translateX(-calc(100% - 15px)); }}
             }}
@@ -125,13 +134,40 @@ class Viewer3D:
 <!-- Control Panel -->
 <div id="control-panel">
     <div class="panel-header">
-        <h2><i class="fa-solid fa-layer-group"></i> Urban Hub</h2>
+        <h2><i class="fa-solid fa-layer-group"></i> WebGIS Dashboard</h2>
         <button id="toggle-panel-btn" title="Toggle Panel"><i class="fa-solid fa-chevron-down"></i></button>
     </div>
     
     <div class="panel-content" id="panel-content-body">
+        
+        <!-- Search Bar -->
         <div class="panel-section" id="geocoder-container"></div>
 
+        <!-- File Upload Section -->
+        <div class="panel-section">
+            <label><i class="fa-solid fa-cloud-arrow-up"></i> Load Custom GeoJSON</label>
+            <div class="file-upload-wrapper">
+                <button class="btn-upload"><i class="fa-solid fa-file-import"></i> Choose File</button>
+                <input type="file" id="geojson-upload" accept=".geojson,.json" />
+            </div>
+            <div id="upload-status" style="font-size: 0.75rem; color: #7f8c8d; margin-top: 5px; text-align: center;">No file selected</div>
+        </div>
+
+        <!-- Custom Drawing Tools -->
+        <div class="panel-section">
+            <label><i class="fa-solid fa-pen-ruler"></i> Measurement Tools</label>
+            <div class="tools-grid">
+                <button class="tool-btn" id="btn-draw"><i class="fa-solid fa-draw-polygon"></i> Draw</button>
+                <button class="tool-btn danger" id="btn-delete"><i class="fa-solid fa-eraser"></i> Delete</button>
+                <button class="tool-btn danger" id="btn-clear"><i class="fa-solid fa-trash-can"></i> Clear All</button>
+            </div>
+            <div id="measurement-results">
+                <strong><i class="fa-solid fa-chart-area"></i> Total Area:</strong><br>
+                <span id="calculated-area">Draw a polygon.</span>
+            </div>
+        </div>
+
+        <!-- Base Map -->
         <div class="panel-section">
             <label><i class="fa-solid fa-map"></i> Base Map</label>
             <select id="layer-switcher">
@@ -141,7 +177,7 @@ class Viewer3D:
             </select>
         </div>
         
-        <!-- Elevation Legend -->
+        <!-- Legend -->
         <div class="panel-section">
             <label><i class="fa-solid fa-chart-line"></i> Elevation Legend</label>
             <div class="legend-row"><div class="legend-color" style="background:#f1eef6;"></div> 0m - 20m</div>
@@ -151,42 +187,52 @@ class Viewer3D:
             <div class="legend-row"><div class="legend-color" style="background:#045a8d;"></div> 100m+</div>
         </div>
 
+        <!-- Reset Camera -->
         <div class="panel-section">
-            <label><i class="fa-solid fa-video"></i> Camera</label>
-            <button id="reset-view"><i class="fa-solid fa-compress"></i> Reset 3D View</button>
-        </div>
-
-        <div id="measurement-results">
-            <strong><i class="fa-solid fa-ruler-combined"></i> Area Measure:</strong><br>
-            <span id="calculated-area">Draw a polygon.</span>
+            <button id="reset-view" class="btn-primary"><i class="fa-solid fa-compress"></i> Reset 3D View</button>
         </div>
     </div>
 </div>
 
 <script>
-    const tpGeoJSON = {geojson_data};
-    const centerCoords = {center_coords};
+    // Initial Python Injected Data
+    let currentGeoJSON = {geojson_data};
+    let initialCenter = {center_coords};
 
     // 1. Initialize Map
     const map = new maplibregl.Map({{
         container: 'map',
         style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-        center: centerCoords,
+        center: initialCenter,
         zoom: 15.5, pitch: 45, bearing: -17.6, antialias: true
     }});
 
-    // 2. Add Standard Controls
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-    // 3. Robust Mapbox Draw Setup
+    // 2. Mapbox Draw Setup (Hidden default UI, controlled by our custom buttons)
     const draw = new MapboxDraw({{
-        displayControlsDefault: false,
-        controls: {{ polygon: true, trash: true }},
-        defaultMode: 'draw_polygon'
+        displayControlsDefault: false
     }});
-    map.addControl(draw, 'top-right');
+    map.addControl(draw);
 
-    // 4. Geocoder Setup
+    // Custom Tool Button Logic
+    document.getElementById('btn-draw').addEventListener('click', () => {{
+        draw.changeMode('draw_polygon');
+        document.getElementById('btn-draw').classList.add('active');
+    }});
+    
+    document.getElementById('btn-delete').addEventListener('click', () => {{
+        draw.trash();
+        updateArea();
+    }});
+    
+    document.getElementById('btn-clear').addEventListener('click', () => {{
+        draw.deleteAll();
+        updateArea();
+        document.getElementById('btn-draw').classList.remove('active');
+    }});
+
+    // 3. Geocoder Setup
     const geocoderApi = {{
         forwardGeocode: async (config) => {{
             const features = [];
@@ -205,47 +251,92 @@ class Viewer3D:
     const geocoder = new MaplibreGeocoder(geocoderApi, {{ maplibregl: maplibregl }});
     document.getElementById('geocoder-container').appendChild(geocoder.onAdd(map));
 
-    // 5. Data Rendering & Interactivity
-    function add3DTpLayer() {{
-        if(map.getSource('tp-data')) return; // Prevent duplicate sources
-        
-        map.addSource('tp-data', {{ 'type': 'geojson', 'data': tpGeoJSON }});
-        map.addLayer({{
-            'id': 'tp-3d-buildings',
-            'source': 'tp-data',
-            'type': 'fill-extrusion',
-            'paint': {{
-                'fill-extrusion-height': ['*', ['get', 'elev_mean'], 2],
-                'fill-extrusion-color': [
-                    'interpolate', ['linear'], ['get', 'elev_mean'],
-                    0, '#f1eef6', 20, '#bdc9e1', 40, '#74a9cf', 60, '#2b8cbe', 100, '#045a8d'
-                ],
-                'fill-extrusion-opacity': 0.85
-            }}
-        }});
+    // 4. Core Rendering Engine
+    function render3DLayer(data) {{
+        // If source exists, update data. Otherwise, create it.
+        if (map.getSource('tp-data')) {{
+            map.getSource('tp-data').setData(data);
+        }} else {{
+            map.addSource('tp-data', {{ 'type': 'geojson', 'data': data }});
+            map.addLayer({{
+                'id': 'tp-3d-buildings',
+                'source': 'tp-data',
+                'type': 'fill-extrusion',
+                'paint': {{
+                    // Fallback to a height of 10 if elev_mean is missing
+                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'elev_mean'], 10], 2],
+                    'fill-extrusion-color': [
+                        'interpolate', ['linear'], ['coalesce', ['get', 'elev_mean'], 0],
+                        0, '#f1eef6', 20, '#bdc9e1', 40, '#74a9cf', 60, '#2b8cbe', 100, '#045a8d'
+                    ],
+                    'fill-extrusion-opacity': 0.85
+                }}
+            }});
+        }}
     }}
 
-    map.on('load', add3DTpLayer);
+    map.on('load', () => render3DLayer(currentGeoJSON));
 
-    // --- HOVER TOOLTIP LOGIC ---
+    // 5. Dynamic File Upload Logic
+    document.getElementById('geojson-upload').addEventListener('change', function(e) {{
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        document.getElementById('upload-status').innerText = `Loading: ${{file.name}}...`;
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {{
+            try {{
+                const uploadedGeoJSON = JSON.parse(event.target.result);
+                
+                // Validate it's a FeatureCollection
+                if(uploadedGeoJSON.type !== 'FeatureCollection' && uploadedGeoJSON.type !== 'Feature') {{
+                    throw new Error("Invalid GeoJSON Format");
+                }}
+
+                currentGeoJSON = uploadedGeoJSON;
+                render3DLayer(currentGeoJSON);
+                
+                // Use Turf.js to calculate bounding box and fly to new data
+                const bbox = turf.bbox(currentGeoJSON);
+                map.fitBounds(bbox, {{ padding: 50, pitch: 45, maxZoom: 17 }});
+                
+                document.getElementById('upload-status').innerText = `Success: ${{file.name}}`;
+                document.getElementById('upload-status').style.color = '#27ae60';
+                
+            }} catch (err) {{
+                console.error("Upload Error:", err);
+                document.getElementById('upload-status').innerText = "Error: Invalid GeoJSON file.";
+                document.getElementById('upload-status').style.color = '#e74c3c';
+            }}
+        }};
+        reader.readAsText(file);
+    }});
+
+    // 6. Hover Tooltip Logic
     const popup = new maplibregl.Popup({{ closeButton: false, closeOnClick: false }});
     
     map.on('mousemove', 'tp-3d-buildings', (e) => {{
         map.getCanvas().style.cursor = 'pointer';
         const props = e.features[0].properties;
         
-        // Format properties safely
-        const elev = props.elev_mean ? props.elev_mean.toFixed(1) + ' m' : 'N/A';
-        const area = props.area_sqm ? parseInt(props.area_sqm).toLocaleString() + ' sqm' : 'N/A';
-        const bldgs = props.building_count ? props.building_count : 0;
+        // Dynamically build HTML based on whatever properties the uploaded file has
+        let html = `<div class="popup-title">Feature Details</div>`;
         
-        const html = `
-            <div class="popup-title">Plot Details</div>
-            <div class="popup-row"><span>Plot ID:</span> <span>${{props.plot_id || 'Unknown'}}</span></div>
-            <div class="popup-row"><span>Area:</span> <span>${{area}}</span></div>
-            <div class="popup-row"><span>Elevation:</span> <span>${{elev}}</span></div>
-            <div class="popup-row"><span>Buildings:</span> <span>${{bldgs}}</span></div>
-        `;
+        // Prioritize our known fields if they exist
+        if (props.elev_mean !== undefined) html += `<div class="popup-row"><span>Elevation:</span> <span>${{props.elev_mean.toFixed(1)}} m</span></div>`;
+        if (props.area_sqm !== undefined) html += `<div class="popup-row"><span>Area:</span> <span>${{parseInt(props.area_sqm).toLocaleString()}} sqm</span></div>`;
+        
+        // Loop through remaining unknown properties (up to 5 to prevent huge popups)
+        let count = 0;
+        for (const [key, value] of Object.entries(props)) {{
+            if (key !== 'elev_mean' && key !== 'area_sqm' && count < 5) {{
+                const displayVal = typeof value === 'number' && !Number.isInteger(value) ? value.toFixed(2) : value;
+                html += `<div class="popup-row"><span>${{key.replace(/_/g, ' ')}}:</span> <span>${{displayVal}}</span></div>`;
+                count++;
+            }}
+        }}
+        
         popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
     }});
 
@@ -254,7 +345,7 @@ class Viewer3D:
         popup.remove();
     }});
 
-    // --- DRAWING TOOL CALCULATION FIX ---
+    // 7. Turf.js Drawing Measurement
     function updateArea() {{
         try {{
             const data = draw.getAll();
@@ -267,28 +358,27 @@ class Viewer3D:
                 areaSpan.innerHTML = `<strong>${{Math.round(area).toLocaleString()}}</strong> sqm`;
             }} else {{
                 resultsDiv.style.display = 'none';
+                document.getElementById('btn-draw').classList.remove('active');
             }}
         }} catch (error) {{
-            console.error("Turf.js Calculation Error: ", error);
+            console.error("Turf.js Calculation Error:", error);
         }}
     }}
+    
     map.on('draw.create', updateArea);
     map.on('draw.delete', updateArea);
     map.on('draw.update', updateArea);
 
-    // --- UI EVENT LISTENERS ---
-    // Layer Switcher
+    // 8. UI Interactions
     document.getElementById('layer-switcher').addEventListener('change', (e) => {{
         map.setStyle(e.target.value);
-        map.once('styledata', add3DTpLayer); // Re-add data after style change
+        map.once('styledata', () => render3DLayer(currentGeoJSON));
     }});
 
-    // Reset View
     document.getElementById('reset-view').addEventListener('click', () => {{
-        map.flyTo({{ center: centerCoords, zoom: 15.5, pitch: 45, bearing: -17.6, essential: true }});
+        map.flyTo({{ center: initialCenter, zoom: 15.5, pitch: 45, bearing: -17.6, essential: true }});
     }});
 
-    // Panel Collapse Toggle
     const panel = document.getElementById('control-panel');
     const toggleBtn = document.getElementById('toggle-panel-btn');
     const toggleIcon = toggleBtn.querySelector('i');
@@ -296,20 +386,18 @@ class Viewer3D:
     toggleBtn.addEventListener('click', () => {{
         panel.classList.toggle('collapsed');
         if (panel.classList.contains('collapsed')) {{
-            toggleIcon.classList.remove('fa-chevron-down');
-            toggleIcon.classList.add('fa-chevron-up');
+            toggleIcon.classList.replace('fa-chevron-down', 'fa-chevron-up');
         }} else {{
-            toggleIcon.classList.remove('fa-chevron-up');
-            toggleIcon.classList.add('fa-chevron-down');
+            toggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
         }}
     }});
 </script>
 </body>
 </html>"""
 
-        projectRoot = os.getcwd()
+        projectRoot= os.getcwd()
         output_path = os.path.join(projectRoot, "index.html")
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_content)
             
-        logger.info(f"Advanced WebGIS Viewer successfully generated at: {output_path}")
+        logger.info(f"Advanced WebGIS Viewer generated successfully at: {output_path}")

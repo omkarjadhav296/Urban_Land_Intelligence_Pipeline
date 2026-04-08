@@ -18,7 +18,7 @@ class Viewer3D:
     def __init__(self, config):
         self.config = config
 
-    def generate_3d_viewer(self, gdf: gpd.GeoDataFrame, output_dir: str):
+    def generate_3d_viewer(self, gdf: gpd.GeoDataFrame, output_dir2: str):
         """Generates the advanced WebGIS HTML dashboard."""
         logger.info("Generating WebGIS Dashboard with Dynamic Upload Capabilities...")
         

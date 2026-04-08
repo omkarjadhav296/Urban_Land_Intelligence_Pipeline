@@ -66,6 +66,7 @@ if __name__ == "__main__":
     INPUT_TP = "data/input/tp_scheme.geojson"
     OUTPUT_DIR = "data/output/"
     
+    
     if os.path.exists(INPUT_TP):
         pipeline = TPPipelineProcessor(INPUT_TP, OUTPUT_DIR)
         pipeline.run()

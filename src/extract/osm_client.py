@@ -22,23 +22,30 @@ class OSMClient:
         logger.info(f"Extracting OSM {infrastructure_type} topology...")
         
         try:
+            # Inject appropriate Overpass API tags based on requested type
             if infrastructure_type == 'buildings':
                 tags = {'building': True}
             elif infrastructure_type == 'roads':
                 tags = {'highway': True}
+            elif infrastructure_type == 'all':
+                tags = {'building': True, 'highway': True}
             else:
-                raise ValueError("Invalid infrastructure type.")
+                raise ValueError(f"Invalid infrastructure type: {infrastructure_type}")
 
+            # Execute spatial extraction
             gdf = ox.features_from_polygon(boundary_polygon, tags)
             
+            # Filter geometries to enforce topological purity
             if infrastructure_type == 'buildings':
                 gdf = gdf[gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])]
-            else:
+            elif infrastructure_type == 'roads':
                 gdf = gdf[gdf.geometry.type.isin(['LineString', 'MultiLineString'])]
+            # Note: For 'all', we inherently keep both Polygons (buildings) and LineStrings (roads)
                 
             logger.info(f"Successfully extracted {len(gdf)} {infrastructure_type} features.")
             return gdf
 
         except Exception as e:
             logger.error(f"Failed to fetch {infrastructure_type} from OSM: {e}")
+            # Fallback to an empty, properly-projected dataframe to prevent pipeline crashes
             return gpd.GeoDataFrame(geometry=[], crs=self.config.WGS84)

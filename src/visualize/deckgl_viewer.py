@@ -3,9 +3,10 @@ Advanced WebGIS Visualization Engine.
 
 Generates a fully interactive, mobile-friendly WebGIS dashboard.
 Features:
+- Mobile-Responsive Accordion Info & Control Panels
+- Right-Centered Map Navigation Controls (Prevents Overlap)
 - Real-time WebGL Transparency Controls
 - OSM Building Context Layer & Road Infrastructure
-- Right-side Project Information Panel
 - Client-side GeoJSON Upload
 - Built vs Vacant Plot Highlighting
 """
@@ -21,7 +22,7 @@ class Viewer3D:
 
     def generate_3d_viewer(self, gdf: gpd.GeoDataFrame, roads_gdf: gpd.GeoDataFrame, buildings_gdf: gpd.GeoDataFrame, output_dir: str):
         """Generates the advanced WebGIS HTML dashboard with buildings, roads, and plots."""
-        logger.info("Generating WebGIS Dashboard with Buildings, Roads, and Opacity Controls...")
+        logger.info("Generating Mobile-Responsive WebGIS Dashboard...")
         
         gdf_wgs84 = gdf.to_crs(self.config.WGS84)
         
@@ -32,16 +33,9 @@ class Viewer3D:
         centroid = gdf_wgs84.geometry.unary_union.centroid
         center_coords = [centroid.x, centroid.y]
         
-        # Serialize all 3 spatial layers
         geojson_data = gdf_wgs84.to_json()
-        
-        roads_geojson = '{"type": "FeatureCollection", "features": []}'
-        if roads_gdf is not None and not roads_gdf.empty:
-            roads_geojson = roads_gdf.to_crs(self.config.WGS84).to_json()
-            
-        buildings_geojson = '{"type": "FeatureCollection", "features": []}'
-        if buildings_gdf is not None and not buildings_gdf.empty:
-            buildings_geojson = buildings_gdf.to_crs(self.config.WGS84).to_json()
+        roads_geojson = roads_gdf.to_crs(self.config.WGS84).to_json() if (roads_gdf is not None and not roads_gdf.empty) else '{"type": "FeatureCollection", "features": []}'
+        buildings_geojson = buildings_gdf.to_crs(self.config.WGS84).to_json() if (buildings_gdf is not None and not buildings_gdf.empty) else '{"type": "FeatureCollection", "features": []}'
 
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -50,99 +44,105 @@ class Viewer3D:
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Urban Land Intelligence | Omkar Arvind Jadhav</title>
     
-    <!-- MapLibre GL JS -->
     <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css" rel="stylesheet" />
-    
-    <!-- Mapbox Draw & Turf.js -->
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css" type="text/css" />
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-
-    <!-- MapLibre Geocoder -->
     <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.css" type="text/css" />
-
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: #e0e0e0; }}
         #map {{ position: absolute; top: 0; bottom: 0; width: 100%; }}
         
-        /* Shared Glassmorphism Panel Styles */
         .glass-panel {{
             position: absolute; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
             border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15); z-index: 10;
             display: flex; flex-direction: column; transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
         }}
         
-        .panel-header {{ padding: 12px 18px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; border-radius: 12px 12px 0 0; }}
-        .panel-header h2 {{ margin: 0; font-size: 1.05rem; color: #2c3e50; display: flex; align-items: center; gap: 8px; }}
+        .panel-header {{ padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; border-radius: 12px 12px 0 0; }}
+        .panel-header h2 {{ margin: 0; font-size: 1rem; color: #2c3e50; display: flex; align-items: center; gap: 8px; }}
         
-        .toggle-btn {{ background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #7f8c8d; transition: 0.3s; padding: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }}
+        .toggle-btn {{ background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #7f8c8d; transition: transform 0.3s, color 0.3s; padding: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }}
         .toggle-btn:hover {{ color: #3498db; }}
         
-        .panel-content {{ padding: 15px 20px; overflow-y: auto; }}
-        .panel-section {{ margin-bottom: 15px; }}
-        .panel-section label {{ display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.8rem; color: #34495e; text-transform: uppercase; letter-spacing: 0.5px; }}
+        .panel-content {{ padding: 12px 15px; overflow-y: auto; }}
+        .panel-section {{ margin-bottom: 12px; }}
+        .panel-section label {{ display: block; font-weight: bold; margin-bottom: 4px; font-size: 0.75rem; color: #34495e; text-transform: uppercase; letter-spacing: 0.5px; }}
         
         #control-panel {{ top: 15px; left: 15px; width: 340px; max-height: 95vh; }}
         #info-panel {{ top: 15px; right: 15px; width: 320px; max-height: 95vh; }}
         
-        .info-text {{ font-size: 0.85rem; color: #444; line-height: 1.35; text-align: justify; margin-bottom: 5px; }}
-        .info-text ul {{ margin-top: 5px; margin-bottom: 5px; padding-left: 20px; }}
-        .info-text li {{ margin-bottom: 4px; }}
+        /* Condensed Typography for Info Panel */
+        .info-text {{ font-size: 0.8rem; color: #333; line-height: 1.25; text-align: justify; margin-bottom: 2px; }}
+        .info-text ul {{ margin-top: 4px; margin-bottom: 4px; padding-left: 18px; }}
+        .info-text li {{ margin-bottom: 3px; }}
         
-        .developer-tag {{ margin-top: 15px; padding-top: 12px; border-top: 1px solid #eee; font-size: 0.85rem; color: #7f8c8d; text-align: center; }}
-        .developer-tag strong {{ color: #2c3e50; font-size: 0.95rem; display: block; margin-top: 3px; }}
+        .developer-tag {{ margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee; font-size: 0.8rem; color: #7f8c8d; text-align: center; }}
+        .developer-tag strong {{ color: #2c3e50; font-size: 0.9rem; display: block; margin-top: 2px; }}
         
-        select, button, input[type="file"], input[type="range"] {{ width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #bdc3c7; background: #fff; cursor: pointer; transition: 0.2s; font-size: 0.85rem; box-sizing: border-box; }}
+        select, button, input[type="file"], input[type="range"] {{ width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #bdc3c7; background: #fff; cursor: pointer; transition: 0.2s; font-size: 0.8rem; box-sizing: border-box; }}
         select:hover, button:hover {{ border-color: #3498db; }}
         
         .btn-primary {{ background: #3498db; color: white; border: none; font-weight: bold; }}
         .btn-primary:hover {{ background: #2980b9; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }}
         
         .tools-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }}
-        .tool-btn {{ padding: 8px 5px; font-size: 0.8rem; background: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 6px; color: #2c3e50; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 5px; }}
-        .tool-btn i {{ font-size: 1.1rem; }}
+        .tool-btn {{ padding: 6px 4px; font-size: 0.75rem; background: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 6px; color: #2c3e50; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 3px; }}
+        .tool-btn i {{ font-size: 1rem; }}
         .tool-btn:hover {{ background: #dcdde1; border-color: #7f8c8d; }}
         .tool-btn.active {{ background: #3498db; color: white; border-color: #2980b9; }}
         .tool-btn.danger:hover {{ background: #e74c3c; color: white; border-color: #c0392b; }}
 
-        .legend-row {{ display: flex; align-items: center; margin-bottom: 4px; font-size: 0.8rem; color: #555; }}
-        .legend-color {{ width: 18px; height: 18px; border-radius: 4px; margin-right: 10px; border: 1px solid rgba(0,0,0,0.1); }}
-        .legend-line {{ width: 18px; height: 4px; background: #2c3e50; margin-right: 10px; border-radius: 2px; }}
+        .legend-row {{ display: flex; align-items: center; margin-bottom: 3px; font-size: 0.75rem; color: #555; }}
+        .legend-color {{ width: 16px; height: 16px; border-radius: 4px; margin-right: 8px; border: 1px solid rgba(0,0,0,0.1); }}
+        .legend-line {{ width: 16px; height: 3px; background: #2c3e50; margin-right: 8px; border-radius: 2px; }}
         
-        #measurement-results {{ margin-top: 10px; padding: 10px; background: #e8f4f8; border-radius: 6px; color: #2980b9; font-size: 0.85rem; display: none; border-left: 4px solid #3498db; }}
+        #measurement-results {{ margin-top: 8px; padding: 8px; background: #e8f4f8; border-radius: 6px; color: #2980b9; font-size: 0.8rem; display: none; border-left: 4px solid #3498db; }}
         
-        .maplibregl-ctrl-geocoder {{ min-width: 100%; box-shadow: none; border: 1px solid #bdc3c7; border-radius: 6px; font-size: 0.85rem; }}
-        .maplibregl-ctrl-geocoder input {{ padding: 8px 30px; }}
+        .maplibregl-ctrl-geocoder {{ min-width: 100%; box-shadow: none; border: 1px solid #bdc3c7; border-radius: 6px; font-size: 0.8rem; }}
+        .maplibregl-ctrl-geocoder input {{ padding: 6px 30px; }}
         
-        .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {{ position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: row; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border-radius: 8px; z-index: 50; }}
-        .maplibregl-ctrl-group > button {{ width: 40px; height: 40px; }}
+        /* Map Controls Fix: Pinned to Right-Center with massive Z-Index to prevent hiding */
+        .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {{ 
+            position: fixed; top: 50%; right: 15px; transform: translateY(-50%); 
+            display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            border-radius: 8px; z-index: 9999 !important; 
+        }}
+        .maplibregl-ctrl-group > button {{ width: 35px; height: 35px; }}
 
-        .maplibregl-popup-content {{ border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); padding: 12px; font-family: inherit; min-width: 200px; }}
-        .popup-title {{ font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 4px; margin-bottom: 6px; color: #2c3e50; text-transform: capitalize; font-size: 0.9rem; }}
-        .popup-row {{ display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 0.8rem; }}
-        .popup-row span:first-child {{ color: #7f8c8d; padding-right: 15px; }}
+        .maplibregl-popup-content {{ border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); padding: 12px; font-family: inherit; min-width: 180px; }}
+        .popup-title {{ font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 4px; margin-bottom: 6px; color: #2c3e50; text-transform: capitalize; font-size: 0.85rem; }}
+        .popup-row {{ display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 0.75rem; }}
+        .popup-row span:first-child {{ color: #7f8c8d; padding-right: 12px; }}
         .popup-row span:last-child {{ font-weight: 600; color: #2c3e50; text-align: right; }}
         .anomaly-flag {{ color: #e74c3c !important; font-weight: bold; }}
 
-        /* Opacity Slider custom style */
-        input[type=range] {{ -webkit-appearance: none; background: transparent; padding: 0; height: 6px; border-radius: 3px; background: #bdc3c7; outline: none; border: none; }}
-        input[type=range]::-webkit-slider-thumb {{ -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #3498db; cursor: pointer; transition: 0.2s; }}
-        input[type=range]::-webkit-slider-thumb:hover {{ transform: scale(1.2); }}
-
+        input[type=range] {{ -webkit-appearance: none; background: transparent; padding: 0; height: 5px; border-radius: 3px; background: #bdc3c7; outline: none; border: none; }}
+        input[type=range]::-webkit-slider-thumb {{ -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #3498db; cursor: pointer; transition: 0.2s; }}
+        
+        /* Responsive CSS */
         @media (min-width: 769px) {{
             #control-panel.collapsed {{ transform: translateX(calc(-100% + 50px)); }}
             #info-panel.collapsed {{ transform: translateX(calc(100% - 50px)); }}
         }}
+        
         @media (max-width: 768px) {{
-            #control-panel {{ width: 92%; left: 4%; top: auto; bottom: 20px; max-height: 50vh; }}
-            #info-panel {{ display: none; }}
-            #control-panel.collapsed {{ transform: translateY(calc(100% - 50px)); }}
-            .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {{ bottom: 85px; }}
+            /* Mobile Positioning */
+            #info-panel {{ width: 92%; left: 4%; top: 15px; right: auto; }}
+            #control-panel {{ width: 92%; left: 4%; top: auto; bottom: 20px; max-height: 55vh; }}
+            
+            /* Mobile Accordion Collapse (Hides content, leaves header) */
+            .glass-panel.collapsed .panel-content {{ display: none; }}
+            
+            /* Rotate desktop left/right arrows to up/down for mobile accordion */
+            .toggle-btn i {{ transform: rotate(-90deg); }}
+            
+            /* Move map controls slightly left to avoid thumb stretch */
+            .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {{ right: 10px; }}
         }}
     </style>
 </head>
@@ -150,26 +150,23 @@ class Viewer3D:
 
 <div id="map"></div>
 
-<!-- Left Control Panel (Tools & Layers) -->
+<!-- Left / Bottom Control Panel -->
 <div id="control-panel" class="glass-panel">
     <div class="panel-header">
         <h2><i class="fa-solid fa-layer-group"></i> WebGIS Dashboard</h2>
         <button id="toggle-control-btn" class="toggle-btn" title="Toggle Panel"><i class="fa-solid fa-chevron-left"></i></button>
     </div>
     <div class="panel-content">
-        <!-- Search Bar -->
         <div class="panel-section" id="geocoder-container"></div>
         
-        <!-- Transparency Slider -->
         <div class="panel-section">
             <label><i class="fa-solid fa-eye"></i> Layer Transparency</label>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <input type="range" id="opacity-slider" min="0" max="1" step="0.05" value="0.85" style="flex-grow: 1;">
-                <span id="opacity-value" style="font-size: 0.85rem; font-weight: bold; color: #2c3e50;">85%</span>
+                <span id="opacity-value" style="font-size: 0.75rem; font-weight: bold; color: #2c3e50;">85%</span>
             </div>
         </div>
 
-        <!-- Custom Drawing Tools -->
         <div class="panel-section">
             <label><i class="fa-solid fa-pen-ruler"></i> Measurement Tools</label>
             <div class="tools-grid">
@@ -183,34 +180,32 @@ class Viewer3D:
             </div>
         </div>
 
-        <!-- Base Map & Legend -->
         <div class="panel-section">
             <label><i class="fa-solid fa-map"></i> Base Map</label>
-            <select id="layer-switcher" style="margin-bottom: 10px;">
+            <select id="layer-switcher" style="margin-bottom: 8px;">
                 <option value="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json">Light Mode (Carto)</option>
                 <option value="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json">Dark Mode (Carto)</option>
                 <option value="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json">Satellite/Color (Carto)</option>
             </select>
             
-            <label style="margin-top: 15px;"><i class="fa-solid fa-chart-line"></i> Land Classification</label>
+            <label style="margin-top: 10px;"><i class="fa-solid fa-chart-line"></i> Land Classification</label>
             <div class="legend-row"><div class="legend-color" style="background:#e67e22;"></div> Built Plot</div>
             <div class="legend-row"><div class="legend-color" style="background:#2ecc71;"></div> Vacant Plot</div>
             <div class="legend-row"><div class="legend-color" style="background:#bdc3c7;"></div> Unclassified</div>
             
-            <label style="margin-top: 10px;"><i class="fa-solid fa-city"></i> Infrastructure Context</label>
+            <label style="margin-top: 8px;"><i class="fa-solid fa-city"></i> Infrastructure Context</label>
             <div class="legend-row"><div class="legend-color" style="background:#ecf0f1; border: 1px solid #bdc3c7;"></div> OSM Buildings</div>
             <div class="legend-row"><div class="legend-line"></div> OSM Road Network</div>
         </div>
         
-        <!-- Custom Client-Side Upload -->
-        <div class="panel-section" style="margin-bottom: 5px;">
+        <div class="panel-section" style="margin-bottom: 2px;">
             <label><i class="fa-solid fa-cloud-arrow-up"></i> Quick View (Local GeoJSON)</label>
             <input type="file" id="geojson-upload" accept=".geojson,application/geo+json">
         </div>
     </div>
 </div>
 
-<!-- Right Project Information Panel -->
+<!-- Right / Top Project Information Panel -->
 <div id="info-panel" class="glass-panel">
     <div class="panel-header" style="flex-direction: row-reverse;">
         <h2>Project Information <i class="fa-solid fa-circle-info"></i></h2>
@@ -220,7 +215,7 @@ class Viewer3D:
         <div class="panel-section">
             <label><i class="fa-solid fa-book-open"></i> Introduction</label>
             <div class="info-text">
-                Traditional Town Planning (TP) relies on static 2D boundaries. This Enterprise Spatial ETL Pipeline bridges the gap by fusing flat polygons with global satellite intelligence and urban infrastructure data.
+                Traditional Town Planning relies on static 2D boundaries. This Enterprise ETL Pipeline fuses flat polygons with global satellite intelligence and urban infrastructure data.
             </div>
         </div>
         
@@ -228,15 +223,15 @@ class Viewer3D:
             <label><i class="fa-solid fa-bullseye"></i> Scope of Dashboard</label>
             <div class="info-text">
                 <ul>
-                    <li><strong>Automated Alignment:</strong> Algorithmic snapping to real-world roads.</li>
-                    <li><strong>Open Data Fusion:</strong> Topology extraction (Built vs Vacant).</li>
-                    <li><strong>Cloud Terrain:</strong> Integration with Google Earth Engine 30m DEM.</li>
+                    <li><strong>Alignment:</strong> Algorithmic snapping to real-world roads.</li>
+                    <li><strong>Data Fusion:</strong> Topology extraction (Built vs Vacant).</li>
+                    <li><strong>Terrain:</strong> Integration with Earth Engine 30m DEM.</li>
                     <li><strong>WebGIS:</strong> Zero-backend 3D topological rendering.</li>
                 </ul>
             </div>
         </div>
         
-        <div class="panel-section" style="margin-top: 15px; margin-bottom: 5px;">
+        <div class="panel-section" style="margin-top: 10px; margin-bottom: 2px;">
             <button id="reset-view" class="btn-primary"><i class="fa-solid fa-compress"></i> Reset 3D View</button>
         </div>
 
@@ -248,13 +243,19 @@ class Viewer3D:
 </div>
 
 <script>
-    // Initial Python Injected Data
     const tpGeoJSON = {geojson_data};
     const roadsGeoJSON = {roads_geojson};
     const buildingsGeoJSON = {buildings_geojson};
     let initialCenter = {center_coords};
 
-    // 1. Initialize Map
+    // Mobile Auto-Collapse Logic (Executes immediately)
+    if (window.innerWidth <= 768) {{
+        document.getElementById('info-panel').classList.add('collapsed');
+        document.getElementById('toggle-info-btn').querySelector('i').classList.replace('fa-chevron-right', 'fa-chevron-left');
+        document.getElementById('control-panel').classList.add('collapsed');
+        document.getElementById('toggle-control-btn').querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
+    }}
+
     const map = new maplibregl.Map({{
         container: 'map', style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
         center: initialCenter, zoom: 15.5, pitch: 45, bearing: -17.6, antialias: true, attributionControl: false
@@ -263,11 +264,9 @@ class Viewer3D:
     map.addControl(new maplibregl.AttributionControl({{ compact: true }}), 'bottom-left');
     map.addControl(new maplibregl.NavigationControl({{ showCompass: true }}), 'bottom-right');
 
-    // 2. Mapbox Draw Setup
     const draw = new MapboxDraw({{ displayControlsDefault: false }});
     map.addControl(draw);
 
-    // 3. UI Actions (Draw & Upload)
     document.getElementById('btn-draw').addEventListener('click', () => {{ draw.changeMode('draw_polygon'); document.getElementById('btn-draw').classList.add('active'); }});
     document.getElementById('btn-delete').addEventListener('click', () => {{ draw.trash(); updateArea(); }});
     document.getElementById('btn-clear').addEventListener('click', () => {{ draw.deleteAll(); updateArea(); document.getElementById('btn-draw').classList.remove('active'); }});
@@ -292,7 +291,6 @@ class Viewer3D:
         }}; reader.readAsText(file);
     }});
 
-    // 4. Geocoder Setup
     const geocoderApi = {{
         forwardGeocode: async (config) => {{
             const features = [];
@@ -308,31 +306,26 @@ class Viewer3D:
     }};
     document.getElementById('geocoder-container').appendChild(new MaplibreGeocoder(geocoderApi, {{ maplibregl: maplibregl }}).onAdd(map));
 
-    // 5. Core Rendering Engine
     function renderLayers() {{
         const currentOpacity = parseFloat(document.getElementById('opacity-slider').value);
 
-        // A. Render OSM Roads (Underneath)
         if (!map.getSource('roads-data') && roadsGeoJSON.features.length > 0) {{
             map.addSource('roads-data', {{ 'type': 'geojson', 'data': roadsGeoJSON }});
             map.addLayer({{ 'id': 'osm-roads', 'type': 'line', 'source': 'roads-data', 'paint': {{ 'line-color': '#2c3e50', 'line-width': 2.5, 'line-opacity': currentOpacity }} }});
         }}
 
-        // B. Render OSM Buildings (Context Layer)
         if (!map.getSource('buildings-data') && buildingsGeoJSON.features.length > 0) {{
             map.addSource('buildings-data', {{ 'type': 'geojson', 'data': buildingsGeoJSON }});
             map.addLayer({{
                 'id': 'osm-buildings', 'type': 'fill-extrusion', 'source': 'buildings-data',
                 'paint': {{
-                    // Try to use OSM height, otherwise default to 8 meters
                     'fill-extrusion-height': ['coalesce', ['to-number', ['get', 'height']], 8],
-                    'fill-extrusion-color': '#ecf0f1', // Contextual Light Grey
-                    'fill-extrusion-opacity': currentOpacity * 0.7 // Make it slightly more transparent than TP plots
+                    'fill-extrusion-color': '#ecf0f1',
+                    'fill-extrusion-opacity': currentOpacity * 0.7 
                 }}
             }});
         }}
 
-        // C. Render TP Plots (Vibrant Analytics Layer on Top)
         if (!map.getSource('tp-data')) {{
             map.addSource('tp-data', {{ 'type': 'geojson', 'data': tpGeoJSON }});
             map.addLayer({{
@@ -348,18 +341,15 @@ class Viewer3D:
 
     map.on('load', renderLayers);
 
-    // 6. Real-time Opacity Slider Logic
     document.getElementById('opacity-slider').addEventListener('input', (e) => {{
         const val = parseFloat(e.target.value);
         document.getElementById('opacity-value').innerText = Math.round(val * 100) + '%';
-        
         if (map.getLayer('tp-3d-buildings')) map.setPaintProperty('tp-3d-buildings', 'fill-extrusion-opacity', val);
         if (map.getLayer('osm-buildings')) map.setPaintProperty('osm-buildings', 'fill-extrusion-opacity', val * 0.7);
         if (map.getLayer('osm-roads')) map.setPaintProperty('osm-roads', 'line-opacity', val);
         if (map.getLayer('custom-upload-layer')) map.setPaintProperty('custom-upload-layer', 'fill-extrusion-opacity', val);
     }});
 
-    // 7. Click Tooltips & Drawing Callbacks
     const popup = new maplibregl.Popup({{ closeButton: true, closeOnClick: true }});
     map.on('click', 'tp-3d-buildings', (e) => {{
         const props = e.features[0].properties;
@@ -394,7 +384,6 @@ class Viewer3D:
     }}
     map.on('draw.create', updateArea); map.on('draw.delete', updateArea); map.on('draw.update', updateArea);
 
-    // 8. Base UI Toggles
     document.getElementById('layer-switcher').addEventListener('change', (e) => {{ map.setStyle(e.target.value); map.once('styledata', renderLayers); }});
     document.getElementById('reset-view').addEventListener('click', () => map.flyTo({{ center: initialCenter, zoom: 15.5, pitch: 45, bearing: -17.6, essential: true }}));
 

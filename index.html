@@ -108,7 +108,7 @@
 <!-- Left Control Panel (Tools & Layers) -->
 <div id="control-panel" class="glass-panel">
     <div class="panel-header">
-        <h2><i class="fa-solid fa-layer-group"></i> WebGIS Dashboard</h2>
+        <h2><i class="fa-solid fa-layer-group"></i> Land Intelligence</h2>
         <button id="toggle-control-btn" class="toggle-btn" title="Toggle Panel"><i class="fa-solid fa-chevron-left"></i></button>
     </div>
     <div class="panel-content">
@@ -161,6 +161,9 @@
         <div class="panel-section" style="margin-bottom: 5px;">
             <label><i class="fa-solid fa-cloud-arrow-up"></i> Quick View (Local GeoJSON)</label>
             <input type="file" id="geojson-upload" accept=".geojson,application/geo+json">
+            <small style="display:block; margin-top:3px; color:#7f8c8d; font-size:0.7rem; line-height: 1.2;">
+                *Files uploaded here bypass backend Python processing.
+            </small>
         </div>
     </div>
 </div>
